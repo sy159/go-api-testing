@@ -72,6 +72,8 @@ services:
       options:
         max-size: '5m'
         max-file: '10'
+    ports:
+      - "8000:8000"
     environment:
       ENV: ${ENV:-dev}
     privileged: true
