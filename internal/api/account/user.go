@@ -124,7 +124,7 @@ func CreateUser(c *gin.Context) {
 	// 校验用户名是否已经存在
 	isDuplicate, err := userDao.IsNameDuplicate(c, userReq.Username)
 	if err != nil {
-		response.FailByError(c, e.HttpInternalServerError)
+		response.Fail(c, e.HttpInternalServerError.GetErrCode(), err.Error())
 		return
 	}
 	if isDuplicate {

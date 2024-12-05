@@ -1,0 +1,93 @@
+version: '3.8'
+
+services:
+  api-testing-nginx:
+    image: nginx:1.26
+    container_name: api-testing-nginx
+    ports:
+      - ${NGINX_PORT:-80}:8080
+    restart: always
+    logging:
+      options:
+        max-size: '10m'
+        max-file: '10'
+    volumes:
+      - /etc/localtime:/etc/localtime
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./config/nginx/conf.d:/etc/nginx/conf.d
+      - ./static/data/nginx/log:/var/log/nginx/
+      - ./static/dist:/usr/share/nginx/html/dist
+    networks:
+      - api_testing_network
+
+  api-testing-mysql:
+    image: mysql:5.7
+    container_name: api-testing-mysql
+    ports:
+      - ${MYSQL_PORT:-3307}:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: zx.123
+      MYSQL_DATABASE: api_test
+    volumes:
+      - /etc/localtime:/etc/localtime
+      - ./static/data/mysql/data:/var/lib/mysql
+      - ./static/data/mysql/logs:/var/log/mysql
+      - ./config/mysql/my.cnf:/etc/mysql/my.cnf
+    restart: always
+    networks:
+      - api_testing_network
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "--password=zx.123" ]
+      interval: 60s
+      timeout: 1s
+      retries: 3
+
+  api-testing-redis:
+    image: redis:6.2
+    container_name: api-testing-redis
+    restart: always
+    ports:
+      - ${REDIS_PORT:-6380}:6379
+    privileged: true
+    volumes:
+      - /etc/localtime:/etc/localtime
+      - ./static/data/redis/data:/data
+      - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command:
+      redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - api_testing_network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 60s
+      timeout: 1s
+      retries: 3
+
+  api-testing-service:
+#    image: ${SERVICE_IMAGE_NAME:-api-testing}:${SERVICE_IMAGE_VERSION:-v1.0}
+    build: .
+    container_name: api-testing-service
+    restart: always
+    logging:
+      options:
+        max-size: '5m'
+        max-file: '10'
+    environment:
+      ENV: ${ENV:-dev}
+    privileged: true
+    volumes:
+      - /etc/localtime:/etc/localtime
+      - ./config:/api-testing-service/config
+      - ./logs:/api-testing-service/logs
+    networks:
+      - api_testing_network
+    depends_on:
+      - api-testing-mysql
+      - api-testing-redis
+
+networks:
+  api_testing_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${SUBNET:-172.101.0.0/24}
